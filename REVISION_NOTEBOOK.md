@@ -27,6 +27,10 @@ Antes de subir la entrega: si tocan cualquier celda más (incluida la sección d
 - [x] **A. No usan ninguna librería de recomendación existente — incumplimiento directo. RESUELTO.**
   El enunciado pide explícitamente "Surprise, RecBole, ClayRS, Elliot entre otras" y "ejecutar uno o más algoritmos usando una librería preexistente". `requirements.txt` solo tenía `pandas, numpy, matplotlib, seaborn, scipy, scikit-learn, nltk` — nada de recomendación. Todo (popularidad, contenido, colaborativo usuario-usuario) estaba implementado a mano con `sklearn.NearestNeighbors` y similitud coseno artesanal.
 
+
+  *⚠️​SI PEDIA USAR UNA LIBRERIA PREEXISTENTE, DIRECTAMENTE SACARIA LO DE "HECHO A MANO" QUE ERA LO DEL COSENO Y DEJARIA LO QUE ESTA IMPLEMENTADO CON UNA LIBRERIA*
+
+
   **Qué se agregó:** una nueva sección **5.5 "Validación con librería externa (Surprise)"**, con `surprise.KNNBasic` (similitud coseno, user-based) entrenado sobre el mismo subconjunto de usuarios/libros activos (`collab_train`, sección 4.4) y evaluado sobre exactamente el mismo test set (`evaluable_test`, sección 5.1) que el CF hecho a mano, para que la comparación sea directa. Se agregó `scikit-surprise` a `requirements.txt`. Se reutilizaron las funciones de test estadístico ya definidas (`independent_ttest`, `one_way_anova`, `fairness_summary`), y de paso se usó por primera vez `paired_model_ttest` (definida en 5.3 pero nunca invocada — ver punto D).
 
   **Resultado final de la comparación** (números tal como quedaron después de todos los cambios posteriores, incluido el fix del punto 4 más abajo):
@@ -84,6 +88,8 @@ Antes de subir la entrega: si tocan cualquier celda más (incluida la sección d
 Al ejecutar la notebook tal cual estaba entregada, el t-test de historial corto vs. largo daba `NaN`/`NaN`, y la tabla de MAE por `history_group` tenía una sola fila ("long") — un resultado degenerado, no evidencia de equidad.
 
 **Causa raíz:** `history_threshold` se calculaba como la mediana de `interaction_count` entre usuarios con al menos 1 rating (daba `1.0`), haciendo que "short" = usuarios con 0 o 1 rating. Pero `split_by_user` (el holdout) descarta por completo a cualquier usuario con menos de 2 ratings, así que ningún usuario "short" podía aparecer nunca en `test_ratings` ni en ninguna métrica calculada sobre test. No era casualidad de semilla: era estructural.
+
+*⚠️​NO ENTENDI BIEN PORQUE PASA ESTO, LOS USUARIOS CON 1 RATING DEBERIAN SER INCLUIDOS EN SHORT, NOSE SI PASA*
 
 **Fix aplicado:** se recalculó el umbral como la mediana de `interaction_count` solo entre usuarios evaluables (`interaction_count >= 2`), que da `4.0` en vez de `1.0` (celda de sección 4.3, con su explicación en markdown actualizada).
 
