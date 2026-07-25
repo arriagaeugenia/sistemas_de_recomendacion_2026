@@ -30,6 +30,8 @@ Antes de subir la entrega: si tocan cualquier celda más (incluida la sección d
 
   *⚠️​SI PEDIA USAR UNA LIBRERIA PREEXISTENTE, DIRECTAMENTE SACARIA LO DE "HECHO A MANO" QUE ERA LO DEL COSENO Y DEJARIA LO QUE ESTA IMPLEMENTADO CON UNA LIBRERIA*
 
+  **Respuesta a ese comentario — por qué no se recomienda sacarlo:**
+  El enunciado pide *"ejecutar uno o más algoritmos usando una librería preexistente"*, es decir, agregar esa comparación — no reemplazar todo lo hecho a mano. Con la sección 5.5 ya está cumplido en la letra del enunciado, sin tocar nada más. Sacar la implementación manual, además, tiene un costo mucho más alto de lo que parece a primera vista: `predict_user_user` no es solo la sección 4.4, es la base de `evaluable_test` (5.1), del fairness por grupo (5.1/5.4), de la comparación con Surprise (5.5), de las extensiones 6.1/6.2 y de buena parte del resumen (sección 7) — sacarla implicaría reescribir la mitad de la notebook. Y lo más importante: el hallazgo de que el CF a mano *le gana* a Surprise (MAE 1.33 vs. 1.45) porque centra por media de usuario y `KNNBasic` no lo hace, es uno de los puntos más fuertes de todo el análisis (ver "Qué está bien", punto 4) — sacarlo tiraría el mejor argumento que tienen para mostrar que entendieron el algoritmo y no solo que saben invocar una librería. Recomendación: dejarlo como está.
 
   **Qué se agregó:** una nueva sección **5.5 "Validación con librería externa (Surprise)"**, con `surprise.KNNBasic` (similitud coseno, user-based) entrenado sobre el mismo subconjunto de usuarios/libros activos (`collab_train`, sección 4.4) y evaluado sobre exactamente el mismo test set (`evaluable_test`, sección 5.1) que el CF hecho a mano, para que la comparación sea directa. Se agregó `scikit-surprise` a `requirements.txt`. Se reutilizaron las funciones de test estadístico ya definidas (`independent_ttest`, `one_way_anova`, `fairness_summary`), y de paso se usó por primera vez `paired_model_ttest` (definida en 5.3 pero nunca invocada — ver punto D).
 
@@ -90,6 +92,13 @@ Al ejecutar la notebook tal cual estaba entregada, el t-test de historial corto 
 **Causa raíz:** `history_threshold` se calculaba como la mediana de `interaction_count` entre usuarios con al menos 1 rating (daba `1.0`), haciendo que "short" = usuarios con 0 o 1 rating. Pero `split_by_user` (el holdout) descarta por completo a cualquier usuario con menos de 2 ratings, así que ningún usuario "short" podía aparecer nunca en `test_ratings` ni en ninguna métrica calculada sobre test. No era casualidad de semilla: era estructural.
 
 *⚠️​NO ENTENDI BIEN PORQUE PASA ESTO, LOS USUARIOS CON 1 RATING DEBERIAN SER INCLUIDOS EN SHORT, NOSE SI PASA*
+
+**Respuesta a ese comentario — la secuencia completa, paso a paso:**
+1. Con el umbral original (`1.0`), un usuario con 1 rating **sí** quedaba clasificado como `short` en `user_groups` — esa parte no fallaba.
+2. El problema está un paso después, en `split_by_user`: para armar train/test, un usuario necesita **al menos 2 ratings** (uno se va a train, otro a test). Un usuario con 0 o 1 rating no tiene de dónde sacar una fila de test, así que `split_by_user` lo descarta directamente — nunca aparece en `test_ratings`.
+3. Todas las métricas por grupo (MAE, t-test) se calculan cruzando `test_ratings` con `user_groups`. Como ningún usuario `short` (con el umbral viejo) llegaba a `test_ratings`, ese cruce daba una tabla vacía para `short` → de ahí el NaN.
+
+O sea: no es que se excluyan del grupo `short` — es que ese grupo, definido así, coincidía exactamente con la población que el propio split de evaluación no puede evaluar nunca (por diseño de `split_by_user`, no por un descarte adicional en el criterio de grupos). Por eso el fix fue correr el umbral para que se calcule solo sobre usuarios evaluables (`>=2` ratings), en vez de tocar `split_by_user` o el criterio de agrupamiento en sí.
 
 **Fix aplicado:** se recalculó el umbral como la mediana de `interaction_count` solo entre usuarios evaluables (`interaction_count >= 2`), que da `4.0` en vez de `1.0` (celda de sección 4.3, con su explicación en markdown actualizada).
 
