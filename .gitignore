@@ -3,3 +3,4 @@ data/
 .ipython/
 __pycache__/
 *.ANTES_DEL_FIX.ipynb
+.venv_linux/
